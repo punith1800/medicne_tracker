@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171a19">
+  <title>Medicine Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <h1>Medicine Tracker</h1>
+        <p class="muted">Keep track of medicines before they expire.</p>
+      </div>
+      <div class="header-actions">
+        <span class="offline-status" id="offline-status" role="status" hidden>Offline</span>
+        <button type="button" class="btn" id="install-app" hidden>Install app</button>
+        <button type="button" class="btn" id="theme-toggle" aria-pressed="false">White theme</button>
+        <button type="button" class="btn btn-primary" id="open-add">+ Add medicine</button>
+      </div>
+    </header>
+
+    <p class="summary" id="summary" aria-live="polite"></p>
+
+    <div class="notice" id="reminder-notice" role="status" hidden>
+      <span id="reminder-text"></span>
+      <button type="button" class="btn btn-link" id="dismiss-reminder">Dismiss</button>
+    </div>
+
+    <section class="soon" id="soon-section" aria-labelledby="soon-heading" hidden>
+      <h2 id="soon-heading">Expiring soon</h2>
+      <ul id="soon-list"></ul>
+    </section>
+
+    <section class="low-stock" id="low-stock-section" aria-labelledby="low-stock-heading" hidden>
+      <h2 id="low-stock-heading">Restock soon</h2>
+      <p class="muted">Based on the minimum quantities you set.</p>
+      <ul id="low-stock-list"></ul>
+    </section>
+
+    <section class="insights" aria-labelledby="insights-heading">
+      <h2 id="insights-heading">Waste prevention</h2>
+      <div class="insight-grid">
+        <p><strong id="insight-soon">0</strong><span>expiring within 30 days</span></p>
+        <p><strong id="insight-expired">0</strong><span>expired packages to review</span></p>
+        <p><strong id="insight-disposed">0</strong><span>marked disposed this month</span></p>
+        <p><strong id="insight-quantity">0</strong><span>units in expired packages</span></p>
+      </div>
+    </section>
+
+    <section class="review-panel" aria-labelledby="review-heading">
+      <div>
+        <h2 id="review-heading">Medicine record review</h2>
+        <p id="review-status" class="muted" aria-live="polite"></p>
+      </div>
+      <div class="review-controls">
+        <label for="review-interval">Review every</label>
+        <select id="review-interval">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
+        <button type="button" class="btn" id="mark-reviewed">I've reviewed these records</button>
+      </div>
+    </section>
+
+    <section class="disposal-guidance" aria-labelledby="disposal-heading">
+      <h2 id="disposal-heading">UK medicine disposal guidance</h2>
+      <p>Ask a pharmacy how to return unwanted or expired medicines. Do not rely on this tracker for local disposal rules.</p>
+      <div class="disposal-links">
+        <a href="https://www.nhs.uk/common-health-questions/medicines/how-should-i-dispose-of-unused-medicines/" target="_blank" rel="noopener noreferrer">NHS: disposing of unused medicines</a>
+        <a href="https://www.nhs.uk/nhs-services/pharmacies/find-a-pharmacy/" target="_blank" rel="noopener noreferrer">Find a pharmacy (NHS)</a>
+      </div>
+    </section>
+
+    <section aria-label="Medicines" id="list-section">
+      <div class="toolbar">
+        <div class="field grow">
+          <label for="search" class="visually-hidden">Search medicines</label>
+          <input type="search" id="search" placeholder="Search medicines..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="filter" class="visually-hidden">Filter by status</label>
+          <select id="filter">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="soon">Expiring soon</option>
+            <option value="expired">Expired</option>
+            <option value="disposed">Disposed</option>
+            <option value="low-stock">Low stock</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sort">Sort by</label>
+          <select id="sort">
+            <option value="expiry">Soonest expiry</option>
+            <option value="name">Name</option>
+            <option value="quantity">Quantity</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="group-by">Group by</label>
+          <select id="group-by">
+            <option value="none">No grouping</option>
+            <option value="category">Category</option>
+            <option value="person">Household member</option>
+            <option value="location">Storage location</option>
+          </select>
+        </div>
+      </div>
+
+      <section class="calendar" aria-labelledby="calendar-heading">
+        <div class="calendar-header">
+          <h2 id="calendar-heading">Expiry calendar</h2>
+          <div class="calendar-controls">
+            <button type="button" class="btn" id="calendar-prev" aria-label="Previous month">Previous</button>
+            <strong id="calendar-month" aria-live="polite"></strong>
+            <button type="button" class="btn" id="calendar-next" aria-label="Next month">Next</button>
+          </div>
+        </div>
+        <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Medicine expiry calendar"></div>
+        <p class="muted calendar-empty" id="calendar-empty" hidden>No medicines expire in this month.</p>
+      </section>
+
+      <div class="backup-actions" aria-label="Backup and bulk actions">
+        <button type="button" class="btn" id="export-json">Export JSON</button>
+        <button type="button" class="btn" id="export-csv">Export CSV</button>
+        <button type="button" class="btn" id="import-backup">Import backup</button>
+        <input type="file" id="import-file" accept=".json,.csv,application/json,text/csv" hidden>
+      </div>
+      <div class="bulk-actions" id="bulk-actions" hidden>
+        <span id="selected-count" aria-live="polite"></span>
+        <button type="button" class="btn" id="bulk-dispose">Mark selected disposed</button>
+        <button type="button" class="btn btn-danger" id="bulk-delete">Delete selected</button>
+        <button type="button" class="btn" id="clear-selection">Clear selection</button>
+      </div>
+
+      <table id="medicine-table">
+        <thead>
+          <tr>
+            <th scope="col"><label class="visually-hidden" for="select-visible">Select all visible medicines</label><input type="checkbox" id="select-visible"></th>
+            <th scope="col">Medicine</th>
+            <th scope="col">Expiry</th>
+            <th scope="col">Quantity</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="medicine-body"></tbody>
+      </table>
+
+      <div class="empty" id="empty-state" hidden>
+        <p id="empty-title"></p>
+        <p class="muted" id="empty-hint"></p>
+        <button type="button" class="btn btn-primary" id="empty-add">Add medicine</button>
+      </div>
+    </section>
+
+    <div class="notify-setting" id="notify-setting" hidden>
+      <span id="notify-text"></span>
+      <button type="button" class="btn btn-link" id="enable-notify">Enable browser notifications</button>
+    </div>
+
+    <footer class="page-footer">
+      <p>This tracker is for organizing household medicines only.<br>
+      Always follow the instructions on the medicine packaging or advice from a qualified healthcare professional.</p>
+      <p>Your medicine list is stored in this browser on this device. Export a backup before clearing browser data.</p>
+      <p>Offline use and installation require this app to be served from localhost or a secure HTTPS website. Review reminders appear when you open the tracker.</p>
+      <button type="button" class="btn btn-danger" id="clear-data">Delete all medicine data</button>
+    </footer>
+  </main>
+
+  <dialog id="add-dialog" aria-labelledby="dialog-title">
+    <form id="add-form" novalidate>
+      <h2 id="dialog-title">Add medicine</h2>
+
+      <div class="field">
+        <label for="name">Medicine name</label>
+        <input type="text" id="name" name="name" required aria-describedby="name-error" autocomplete="off">
+        <p class="error" id="name-error" hidden>Enter a medicine name.</p>
+      </div>
+
+      <div class="field">
+        <label for="expiry">Expiry date</label>
+        <input type="date" id="expiry" name="expiry" required aria-describedby="expiry-error">
+        <p class="error" id="expiry-error" hidden>Choose an expiry date.</p>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="quantity">Quantity</label>
+          <input type="number" id="quantity" name="quantity" min="0" step="1" value="1" aria-describedby="quantity-error">
+        </div>
+        <div class="field">
+          <label for="unit">Unit</label>
+          <select id="unit" name="unit">
+            <option>Tablets</option>
+            <option>Capsules</option>
+            <option>Bottles</option>
+            <option>Strips</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <p class="error" id="quantity-error" hidden>Enter a nonnegative whole number.</p>
+
+      <div class="field">
+        <label for="reminder">Remind me</label>
+        <select id="reminder" name="reminder">
+          <option value="7">7 days before</option>
+          <option value="14">14 days before</option>
+          <option value="30">30 days before</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes <span class="muted">(optional)</span></label>
+        <textarea id="notes" name="notes" rows="3"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="category">Category</label>
+          <input type="text" id="category" name="category" placeholder="e.g. Pain relief">
+        </div>
+        <div class="field">
+          <label for="person">Household member</label>
+          <input type="text" id="person" name="person" placeholder="e.g. Alex">
+        </div>
+      </div>
+      <div class="field">
+        <label for="location">Storage location</label>
+        <input type="text" id="location" name="location" placeholder="e.g. Bathroom cabinet">
+      </div>
+      <p class="muted form-hint">Create a separate entry for each package or batch if expiry dates differ.</p>
+      <div class="row">
+        <div class="field">
+          <label for="batch-number">Package / batch label</label>
+          <input type="text" id="batch-number" name="batch-number" placeholder="Optional lot or package ID">
+        </div>
+        <div class="field">
+          <label for="minimum-quantity">Restock when quantity is at or below</label>
+          <input type="number" id="minimum-quantity" name="minimum-quantity" min="0" step="1" placeholder="Optional">
+          <p class="error" id="minimum-quantity-error" hidden>Enter a nonnegative whole number.</p>
+        </div>
+      </div>
+      <div class="field">
+        <label for="storage-notes">Storage and handling notes</label>
+        <textarea id="storage-notes" name="storage-notes" rows="2" placeholder="Your notes from the packaging or pharmacist"></textarea>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="cancel-add">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save medicine</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="quantity-dialog" aria-labelledby="quantity-title">
+    <form id="quantity-form" novalidate>
+      <h2 id="quantity-title">Change quantity</h2>
+      <p id="quantity-medicine" class="muted"></p>
+      <input type="hidden" id="quantity-id">
+      <div class="field">
+        <label for="quantity-change">Amount to use or restock</label>
+        <input type="number" id="quantity-change" min="1" step="1" value="1" required>
+        <p class="error" id="quantity-change-error" hidden>Enter a positive whole number.</p>
+        <p class="error" id="quantity-stock-error" hidden>There isn't enough quantity to record that use.</p>
+      </div>
+      <div class="field">
+        <label for="quantity-action">Change type</label>
+        <select id="quantity-action">
+          <option value="used">Used</option>
+          <option value="restocked">Restocked</option>
+        </select>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="cancel-quantity">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save change</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
